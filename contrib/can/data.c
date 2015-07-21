@@ -4,6 +4,5 @@
 data_t construct_data(){
 	data_t data;
 
-	// modbusData.clear = data_clear;
 	return data;
 }

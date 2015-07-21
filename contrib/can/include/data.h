@@ -18,6 +18,12 @@ struct data_t {
 	float32 dummy2;
 	float32 dummy3;
 	float32 dummy4;
+	float32 dummy5;
+	float32 dummy6;
+	float32 dummy7;
+	float32 dummy8;
+	float32 dummy9;
+	float32 dummy10;
 };
 
 data_t construct_data();

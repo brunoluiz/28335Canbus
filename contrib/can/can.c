@@ -91,22 +91,23 @@ void can_clear() {
     ECanaMboxes.MBOX1.MDH.all = 0;
 }
 
-int can_write(Uint32 id, unsigned short * data, unsigned short  size) {
+int can_write(Uint32 id, Uint16 * data, unsigned short  size) {
 	struct ECAN_REGS ECanaShadow;
 	int i = 0;
 	unsigned long content_h = 0;
 	unsigned long content_l = 0;
 
 	ECanaShadow.CANME.all = 0;
-	ECanaShadow.CANME.bit.ME0 = 0;             // Set TRS for mailbox 0
+	ECanaShadow.CANME.bit.ME0 = 0;
 	ECanaRegs.CANME.all = ECanaShadow.CANME.all;
 
 	// SET: CAN arbitary ID
-	ECanaMboxes.MBOX0.MSGID.bit.IDE = 1;
-	ECanaMboxes.MBOX0.MSGID.all = id | ((Uint32)1 << 31);
+	// ECanaMboxes.MBOX0.MSGID.bit.IDE = 1;
+	// ECanaMboxes.MBOX0.MSGID.all = id | ((Uint32)1 << 31);
+	ECanaMboxes.MBOX0.MSGID.bit.STDMSGID = id | ((Uint32)1 << 8);
 
 	ECanaShadow.CANME.all = 0;
-	ECanaShadow.CANME.bit.ME0 = 1;             // Set TRS for mailbox 0
+	ECanaShadow.CANME.bit.ME0 = 1;
 	ECanaRegs.CANME.all = ECanaShadow.CANME.all;
 
 	// SET: CAN DLC/size
@@ -140,22 +141,42 @@ int can_write(Uint32 id, unsigned short * data, unsigned short  size) {
 }
 
 int can_listen(can_t *self) {
-//	volatile struct MBOX *Mailbox;
-//	Mailbox = &ECanaMboxes.MBOX0;
-//	mdl = Mailbox->MDL.all; // = 0x9555AAAn (n is the MBX number)
-//	mdh = Mailbox->MDH.all; // = 0x89ABCDEF (a constant)
-//	id = Mailbox->MSGID.all;// = 0x9555AAAn (n is the MBX number)
-//	size = Mailbox->MSGID.all;// = 0x9555AAAn (n is the MBX number)
+	struct ECAN_REGS ECanaShadow;
 
-	self->request.id = 0;
-	if ( (self->request.id != NODE_ID) || (self->request.id != BROADCAST_ID) ) 
-		return -1;
+	ECanaShadow.CANME.all = 0;
+	ECanaShadow.CANME.bit.ME1 = 0;
+	ECanaRegs.CANME.all = ECanaShadow.CANME.all;
 
-	// TODO: Implement how to get those data from mailbox
+	// SET: CAN arbitary ID: extended ID
+	ECanaMboxes.MBOX1.MSGID.bit.STDMSGID = NODE_ID;
+
+	ECanaShadow.CANMD.all = ECanaRegs.CANMD.all;	
+	ECanaShadow.CANMD.all = 0x02;
+	ECanaRegs.CANMD.all = ECanaShadow.CANMD.all;
+
+	ECanaShadow.CANME.all = 0;
+	ECanaShadow.CANME.bit.ME1 = 1;
+	ECanaRegs.CANME.all = ECanaShadow.CANME.all;
+
+	ECanaShadow.CANRMP.all = 0;
+	ECanaShadow.CANRMP.bit.RMP1 = 1;     	         // Clear TA0
+	ECanaRegs.CANRMP.all = ECanaShadow.CANRMP.all;
+
+	while(ECanaRegs.CANRMP.all != 0x00000002) { }
+	
+    // Clear flags after transmit
+	ECanaShadow.CANRMP.all = 0;
+	ECanaShadow.CANRMP.bit.RMP1 = 1;     	         // Clear TA0
+	ECanaRegs.CANRMP.all = ECanaShadow.CANRMP.all;
+
 	self->request.addr = 0;
-	self->request.op_code = 0;
-	self->request.content[0] = 0;
-	self->request.size = 0;
+
+	// // TODO: Implement how to get those data from mailbox
+	self->request.func = (ECanaMboxes.MBOX1.MDL.byte.BYTE0);
+	self->request.addr = ((unsigned int)ECanaMboxes.MBOX1.MDL.byte.BYTE1 << 8) | ECanaMboxes.MBOX1.MDL.byte.BYTE2;
+	self->request.content[0] = ECanaMboxes.MBOX1.MDL.byte.BYTE3;
+	self->request.content[1] = ECanaMboxes.MBOX1.MDH.byte.BYTE4;
+	self->request.size = ECanaMboxes.MBOX1.MSGCTRL.bit.DLC;
 
 	return 1;
 }
@@ -167,28 +188,37 @@ int can_process(can_t *self) {
 	registersPtr = (char *)&(self->data);
 
 	// READ REGISTERS
-	if (self->request.op_code == OP_READ_REG) {
-		self->response.addr    = self->request.addr;
-		self->response.id      = self->request.id;
-		self->response.op_code = OP_WRITE_REG;
+	if (self->request.func == MB_FUNC_READ_HOLDINGREGISTERS) {
+		unsigned short readData;
+
+		self->response.id = NODE_ID;
+		self->response.addr = self->request.addr;
+		self->response.func = self->request.func;
+
+		self->response.size    = self->request.size;
 
 		// TODO: Implement READ
-//		self->response.content = *(registersPtr + self->request.addr);
-		self->response.size    = self->request.size;
+		readData = *(registersPtr + self->request.addr);
+		self->response.content[0] = (readData & 0xFF00) >> 8;
+		self->response.content[1] = (readData & 0x00FF);
+		self->response.size    = 5;
 		
 		return 1;
 	}
 	// WRITE TO REGISTERS
-	else if (self->request.op_code == OP_WRITE_REG) {
+	else if ( (self->request.func == MB_FUNC_WRITE_NREGISTERS) || (self->request.func == MB_FUNC_WRITE_HOLDINGREGISTER) ){
+		Uint16 dataToWrite = (self->request.content[0] << 8) | self->request.content[1];
 
-		self->response.addr    = self->request.addr;
-		self->response.id      = self->request.id;
-		self->response.op_code = OP_WRITE_REG;
+		self->response.id = NODE_ID;
+		self->response.addr = self->request.addr;
+		self->response.func = self->request.func;
+		self->response.content[0] = self->request.content[0];
+		self->response.content[1] = self->request.content[1];
 
-		// TODO: Implement WRITE
 		memAddr = (Uint16 *) (registersPtr + self->request.addr);
-		*(memAddr) = (Uint16)(self->request.content);
+		*(memAddr) = (Uint16)(dataToWrite);
 		self->response.size    = self->request.size;
+
 		return 1;
 	}
 
@@ -196,14 +226,15 @@ int can_process(can_t *self) {
 }
 
 int can_send(can_t *self) {
-	int size;
-	Uint64 id = 0;
+	Uint16 formatedResponse[8];
 
-	id |= (self->response.addr);
-	id |= ((Uint64)self->response.id << 16);
-	id |= ((Uint64)self->response.op_code << 24);
+	formatedResponse[0] = self->response.func;
+	formatedResponse[1] = (self->response.addr & 0xFF00) >> 8;
+	formatedResponse[2] = (self->response.addr & 0x00FF);
+	formatedResponse[3] = self->response.content[0];
+	formatedResponse[4] = self->response.content[1];
 
-	return can_write((Uint32)id, self->response.content, self->response.size);
+	return can_write(self->response.id, formatedResponse, 5);
 }
 
 

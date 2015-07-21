@@ -15,4 +15,15 @@
 // Serial settings ========================================
 #define CAN_BAUDRATE 	38400
 
+typedef enum {
+	MB_FUNC_READ_COIL = 1,
+	MB_FUNC_READ_INPUT,
+	MB_FUNC_READ_HOLDINGREGISTERS,
+	MB_FUNC_READ_INPUTREGISTERS,
+	MB_FUNC_FORCE_COIL,
+	MB_FUNC_WRITE_HOLDINGREGISTER,
+	MB_FUNC_FORCE_NCOILS = 15,
+	MB_FUNC_WRITE_NREGISTERS = 16
+} ModbusFunctionCode;
+
 #endif

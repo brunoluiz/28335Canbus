@@ -5,12 +5,12 @@
 #include "data.h"
 
 typedef struct {
-	int addr;
-	int id;
-	int op_code;
+	Uint16 id;
+	Uint16 addr;
+	Uint16 func;
 
-	unsigned short content[8];
-	unsigned short size;
+	Uint16 content[8];
+	Uint16 size;
 } can_content_t;
 
 typedef struct can_t can_t;
@@ -25,7 +25,7 @@ struct can_t {
 	int  (*init)(can_t *self);
 	void (*clear)();
 
-	int  (*write)(Uint32 id, unsigned short * data, unsigned short  size);
+	int  (*write)(Uint32 id, Uint16 * data, unsigned short  size);
 	
 	int  (*listen)(can_t *self);
 	int  (*process)(can_t *self);
@@ -37,7 +37,7 @@ struct can_t {
 inline int can_init(can_t *self);
 inline void can_clear();
 
-inline int can_write(Uint32 id, unsigned short * data, unsigned short  size);
+inline int can_write(Uint32 id, Uint16 * data, unsigned short  size);
 
 inline int can_listen(can_t *self);
 inline int can_process(can_t *self);
