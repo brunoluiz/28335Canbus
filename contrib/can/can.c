@@ -5,56 +5,8 @@
 #include "can.h"
 
 int can_init(can_t *self) {
-	// Step 1. Initialize System Control:
-	// PLL, WatchDog, enable Peripheral Clocks
-	// This example function is found in the DSP2833x_SysCtrl.c file.
-	InitSysCtrl();
-
-	// Step 2. Initalize GPIO:
-	// This example function is found in the DSP2833x_Gpio.c file and
-	// illustrates how to set the GPIO to it's default state.
-	// InitGpio();  // Skipped for this example
-
-	// For this example, configure CAN pins using GPIO regs here
-	// This function is found in DSP2833x_ECan.c
 	InitECanGpio();
-
-	// Step 3. Clear all interrupts and initialize PIE vector table:
-	// Disable CPU interrupts
-	DINT;
-
-	// Initialize PIE control registers to their default state.
-	// The default state is all PIE interrupts disabled and flags
-	// are cleared.
-	// This function is found in the DSP2833x_PieCtrl.c file.
-	InitPieCtrl();
-
-	// Disable CPU interrupts and clear all CPU interrupt flags:
-	IER = 0x0000;
-	IFR = 0x0000;
-
-	// Initialize the PIE vector table with pointers to the shell Interrupt
-	// Service Routines (ISR).
-	// This will populate the entire table, even if the interrupt
-	// is not used in this example.  This is useful for debug purposes.
-	// The shell ISR routines are found in DSP2833x_DefaultIsr.c.
-	// This function is found in DSP2833x_PieVect.c.
-	InitPieVectTable();
-
 	InitECana();
-
-	// User inits
-	// Configure Mailbox 0 as a Transmit mailbox and Mailbox 1 as Receive mailbox
-	// ECanaShadow.CANMD.all = 0xFFFFFFFE;
-	// ECanaShadow.CANMD.all = 0x00000000;
-
-	// // Enable Mailbox 0 and 1 
-	// ECanaShadow.CANME.all = 0x00000003;
-
-	// // Enable interruptions
-	// EALLOW;
- //    ECanaRegs.CANMIM.all = 0xFFFFFFFF;
- //    EDIS;
 
     // Configure Mailboxes 0-15 as Tx, 16-31 as Rx
     // Since this write is to the entire register (instead of a bit
@@ -77,18 +29,18 @@ int can_init(can_t *self) {
 }
 
 void can_clear() {
-    ECanaRegs.CANME.all = 0;
+	  ECanaRegs.CANME.all = 0;
 
-	ECanaMboxes.MBOX0.MSGID.all = 0;
-	ECanaMboxes.MBOX1.MSGID.all = 0;
+		ECanaMboxes.MBOX0.MSGID.all = 0;
+		ECanaMboxes.MBOX1.MSGID.all = 0;
 
-	ECanaMboxes.MBOX0.MSGCTRL.bit.DLC = 0;
-	ECanaMboxes.MBOX1.MSGCTRL.bit.DLC = 0;
+		ECanaMboxes.MBOX0.MSGCTRL.bit.DLC = 0;
+		ECanaMboxes.MBOX1.MSGCTRL.bit.DLC = 0;
 
-	ECanaMboxes.MBOX0.MDL.all = 0;
-    ECanaMboxes.MBOX0.MDH.all = 0;
-	ECanaMboxes.MBOX1.MDL.all = 0;
-    ECanaMboxes.MBOX1.MDH.all = 0;
+		ECanaMboxes.MBOX0.MDL.all = 0;
+	  ECanaMboxes.MBOX0.MDH.all = 0;
+		ECanaMboxes.MBOX1.MDL.all = 0;
+	  ECanaMboxes.MBOX1.MDH.all = 0;
 }
 
 int can_write(Uint32 id, Uint16 * data, unsigned short  size) {
@@ -187,6 +139,19 @@ int can_process(can_t *self) {
 
 	registersPtr = (char *)&(self->data);
 
+	if (self->request.addr >= sizeof(self->data)) {
+		self->response.id = NODE_ID;
+		self->response.func = 0x80 | self->request.func;
+
+		self->response.size    = self->request.size;
+
+		// TODO: Implement READ
+		self->response.content[0] = 0x02;
+		self->response.size    = 2;
+		
+		return 1;
+	}
+
 	// READ REGISTERS
 	if (self->request.func == MB_FUNC_READ_HOLDINGREGISTERS) {
 		unsigned short readData;
@@ -227,6 +192,12 @@ int can_process(can_t *self) {
 
 int can_send(can_t *self) {
 	Uint16 formatedResponse[8];
+
+	if ((self->response.func & 0xF0) == 0x80) {
+		formatedResponse[0] = self->response.func;
+		formatedResponse[1] = self->response.content[0];
+		return can_write(self->response.id, formatedResponse, 2);
+	}
 
 	formatedResponse[0] = self->response.func;
 	formatedResponse[1] = (self->response.addr & 0xFF00) >> 8;

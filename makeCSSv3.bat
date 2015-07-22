@@ -16,15 +16,11 @@ if not exist %CCSv3OutputDir% (
 
 
 echo ## Copying .c files to %CCSv3OutputDir%\Source...
-copy contrib\modbus\*.c %CCSv3OutputDir%\Source
-copy contrib\modbus\plataform\DSP2833x\*.c %CCSv3OutputDir%\Source
+copy contrib\can\*.c %CCSv3OutputDir%\Source
 echo.
 
 echo ## Copying .h files to %CCSv3OutputDir%\Include...
-copy contrib\modbus\include\*.h %CCSv3OutputDir%\Include
-if %CopySerialTimerHeader%==1 (
-	copy contrib\modbus\plataform\DSP2833x\include\*.h %CCSv3OutputDir%\Include
-)
+copy contrib\can\include\*.h %CCSv3OutputDir%\Include
 echo.
 
 echo ## Done!

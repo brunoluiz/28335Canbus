@@ -6,7 +6,7 @@
 can_t can;
 
 int main(){
-	// InitSysCtrl();
+	InitSysCtrl();
 
 	can = construct_can();
 	can.init(&can);
