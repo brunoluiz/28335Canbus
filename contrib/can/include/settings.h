@@ -9,8 +9,8 @@
 
 // CAN settings ========================================
 #define BROADCAST_ID	0x00
-#define NODE_ID			0x01
-#define DATA_MAP		"data.h"
+#define NODE_ID			  0x01
+#define DATA_MAP		  "data.h"
 
 // Serial settings ========================================
 #define CAN_BAUDRATE 	38400
